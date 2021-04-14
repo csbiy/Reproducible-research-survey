@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="../js/axios.min.js"></script>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-more.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="https://code.highcharts.com/modules/export-data.js"></script>
+  <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+  <link rel="stylesheet" href="../css/highchart.css">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="../css/bootstrap.min.css">
+  <link rel="stylesheet" href="../css/reset.css">
+  <link rel="stylesheet" href="../css/index.css">
+  <script src="../js/bootstrap.min.js"></script>
+  <title>Document</title>
+</head>
+
+<body>
+  <h1>Reproducible Research 프로그램 평가</h1>
+  <hr>
+  <figure class="highcharts-figure">
+    <div id="container"></div>
+    <small class="highcharts-description">
+        * 프로그램 평가 결과가 실시간으로 반영됩니다. 현재 <strong id="surveyCnt"></strong>개 평가가 취합됬습니다. 
+    </small>
+  </figure>
+  <hr>
+  <form class="formWrapper" action="/survey" method="POST">
+   
+    <div class="d-flex justify-content-between">
+      <p> <strong>이메일 * </strong> </p>
+      <p id="necessaryInputTxt"> * 필수 입력값</p>
+    </div>
+    <div class="form-row align-items-stretch">
+      <div class="col-auto">
+        <input id="email" type="text" class="form-control mb-2" name="email" placeholder="email">
+      </div>
+      <div class="col-auto">
+          <div class="input-group mb-2">
+          <div class="input-group-prepend">
+            <div class="input-group-text">@</div>
+          </div>
+          <input id="domain" type="text" class="form-control" name="emailDomain" placeholder="gmail.com">
+        </div>
+      </div>
+      <div>
+        <p id="emailError"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> 이메일 값은 필수 값입니다. </p>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="name"><strong>성함 * </strong></label>
+      <div class="d-flex">
+        <input id="name" type="text" class="form-control w-25 " name="name" placeholder="name">
+        <p id="nameError"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> 이름 값은 필수 값입니다. </p>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="experimentType"><strong>Reproducible Research 적용시험 * </strong></label>
+      <select class="form-control w-25" name="experimentType">
+        <option>TGI (tumor growth inhibition) </option>
+        <option>준비중</option>
+      </select>
+    </div>
+  
+    <div id="satisfactionSurvey">
+      <p><strong>만족도 조사 (1:전혀그렇지 않다 ~ 3: 보통 ~  5: 매우 그렇다) </strong></p>
+    </div>
+    <hr>
+    <div class="satisfactionForm">
+      <div class="satisfactionTxt">
+        <p>프로그램 적용 후 결과 보고서 작성 시간이 기존 시간보다 절약되었습니까</p>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="timeSaveScore" id="timeSaveScore1" value="1">
+        <label class="form-check-label" for="inlineRadio1">1</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="timeSaveScore" id="timeSaveScore2" value="2">
+        <label class="form-check-label" for="inlineRadio2">2</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="timeSaveScore" id="timeSaveScore3" value="3">
+        <label class="form-check-label" for="inlineRadio2">3</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="timeSaveScore" id="timeSaveScore4" value="4">
+        <label class="form-check-label" for="inlineRadio2">4</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="timeSaveScore" id="timeSaveScore5" value="5">
+        <label class="form-check-label" for="inlineRadio2">5</label>
+      </div>
+    </div>
+    <hr>
+
+    <div class="satisfactionForm">
+      <div class="satisfactionTxt">
+        <p>데이터가 결과 보고서에 오기없이 기입되었습니까</p>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="dataIntegrityScore" id="dataIntegrityScore1" value="1">
+        <label class="form-check-label" for="inlineRadio1">1</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="dataIntegrityScore" id="dataIntegrityScore2" value="2">
+        <label class="form-check-label" for="inlineRadio2">2</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="dataIntegrityScore" id="dataIntegrityScore3" value="3">
+        <label class="form-check-label" for="inlineRadio2">3</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="dataIntegrityScore" id="dataIntegrityScore4" value="4">
+        <label class="form-check-label" for="inlineRadio2">4</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="dataIntegrityScore" id="dataIntegrityScore5" value="5">
+        <label class="form-check-label" for="inlineRadio2">5</label>
+      </div>
+    </div>
+    <hr>
+    <div class="satisfactionForm">
+      <div class="satisfactionTxt">
+        <p>프로그램 개선 방향에 실무자분 의견이 적극 반영되었습니까</p>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="reflectOpnionScore" id="reflectOpnionScore1" value="1">
+        <label class="form-check-label" for="inlineRadio1">1</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="reflectOpnionScore" id="reflectOpnionScore2" value="2">
+        <label class="form-check-label" for="inlineRadio2">2</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="reflectOpnionScore" id="reflectOpnionScore3" value="3">
+        <label class="form-check-label" for="inlineRadio2">3</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="reflectOpnionScore" id="reflectOpnionScore4" value="4">
+        <label class="form-check-label" for="inlineRadio2">4</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="reflectOpnionScore" id="reflectOpnionScore5" value="5">
+        <label class="form-check-label" for="inlineRadio2">5</label>
+      </div>
+    </div>
+    <hr>
+    <div class="satisfactionForm">
+      <div class="satisfactionTxt">
+        <p>Raw Data 제출 후 결과 보고서 완성본을 받기까지 시간이 적절했습니까</p>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="responseTimeScore" id="responseTimeScore1" value="1">
+        <label class="form-check-label" for="responseTime1">1</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="responseTimeScore" id="responseTimeScore2" value="2">
+        <label class="form-check-label" for="responseTime2">2</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="responseTimeScore" id="responseTimeScore3" value="3">
+        <label class="form-check-label" for="responseTime3">3</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="responseTimeScore" id="responseTimeScore4" value="4">
+        <label class="form-check-label" for="responseTime4">4</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="responseTimeScore" id="responseTimeScore5" value="5">
+        <label class="form-check-label" for="responseTime5">5</label>
+      </div>
+    </div>
+    <hr>
+    <div class="satisfactionForm">
+      <div class="satisfactionTxt">
+        <p>전체 만족도 평가</p>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="satisfyScore" id="satisfyScore1" value="1">
+        <label class="form-check-label" for="responseTime1">1</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="satisfyScore" id="satisfyScore2" value="2">
+        <label class="form-check-label" for="responseTime2">2</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="satisfyScore" id="satisfyScore3" value="3">
+        <label class="form-check-label" for="responseTime3">3</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="satisfyScore" id="satisfyScore4" value="4">
+        <label class="form-check-label" for="responseTime4">4</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="satisfyScore" id="satisfyScore5" value="5">
+        <label class="form-check-label" for="responseTime5">5</label>
+      </div>
+    </div>
+    <hr>
+
+    <div class="form-group figureForm">
+      <div>
+        <div class="figure">
+          <div>
+            <p> <strong>결과보고서 Figure 별 Comment </strong></p>
+          </div>
+          <div class="figureBtnList">
+            <button class="addBtn" type="button" onclick="addComment()"><i class="fa fa-plus" aria-hidden="true"></i></button>
+          </div>
+
+        </div>
+        <div>
+          <select class="form-control exampleFormControlSelect1 figureComment" name="figureComment">
+            <option value="table1">Table1. 종양 성장 확인 및 군 분리</option>
+            <option value="figure1a">Figure 1a. 그룹 별 종양 성장 곡선</option>
+            <option value="figure1b">Figure 1b. 개체 별 종양 성장 곡선</option>
+            <option value="table2">Table2. 종양부피의 평균 및 표준편차</option>
+            <option value="table3">Table3. TGI(%)</option>
+            <option value="figure2">Figure 2. 실험종료일에 개체별 종양 체적(mm3)</option>
+            <option value="figure3">Figure 3. 실험종료일에 개체별 종양 무게(g)</option>
+            <option value="table4">Table4. 체중의 평균 및 표준편차</option>
+            <option value="figure4a">Figure 4a. 그룹별 체중 변화 곡선</option>
+            <option value="figure4b">Figure 4b. 개체 별 체중 변화 곡선</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <textarea class="form-control exampleFormControlTextarea1" rows="3" name="figureCommentTxt"></textarea>
+        </div>
+      </div>
+
+    </div>
+    <div>
+
+      <div>
+        <p>
+          <strong>기타 의견사항</strong>
+        </p>
+      </div>
+      <div class="form-group">
+        <textarea class="form-control" class="exampleFormControlTextarea1" rows="5" placeholder="" name="userOpinion"></textarea>
+      </div>
+    </div>
+
+    <div class="submit">
+      <div class="submitBtnWrapper">
+        <button type="button" class="btn btn-primary" id="submitBtn">제출</button>
+        <button type="button" class="btn btn-primary" id="resetBtn">취소</button>
+      </div>
+    </div>
+  </form>
+
+  <script src="../js/validate.js"></script>
+  <script src="../js/index.js"></script>
+  <script src="../js/graph.js"></script>
+</body>
+
+</html>

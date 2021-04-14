@@ -1,0 +1,6 @@
+backend/node_modules
+backend/config
+backend/log
+backend/.dockerignore
+backend/public/scss
+backend/.env
