@@ -1,12 +1,11 @@
 
-const connectionConfigInfo  = require("../../config/database")
 let surveyForm = require("../../model/surveyForm");
 const dateFormater = require("dateformat");
 const mysql = require('mysql2');
 
 let connection = mysql.createConnection(    
     {
-    host:"172.21.0.2",
+    host: "172.19.0.2",
     user: "root",
     password: "1234",
     database: "survey",
