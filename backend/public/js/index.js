@@ -63,7 +63,7 @@ submitBtn.addEventListener("click",()=>{
     })
      .then(()=>{
         alert("제출되었습니다, 평가주셔서 감사합니다. ");  
-        location.reload();
+        window.location.href="/";
      })
      .catch((error)=>{
        if(error) throw error;
