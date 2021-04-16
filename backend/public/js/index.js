@@ -63,10 +63,10 @@ submitBtn.addEventListener("click",()=>{
     })
      .then(()=>{
         alert("제출되었습니다, 평가주셔서 감사합니다. ");  
-        window.location="/";
+        location.reload();
      })
      .catch((error)=>{
-        console.log(error);
+       if(error) throw error;
      })
   }
 })
@@ -80,9 +80,10 @@ axios.get("/survey")
      scoreAvg = dto[scoreAvgIndex];
      chartDto = Object.values(scoreAvg);
      chartDto.push(getAvg(chartDto));
-     console.log(chartDto);
      createGph(chartDto);
      surveyCnt.textContent=dto[totalSurveyCntIndex].totalSurveyCnt;
   })
-  .catch((fail)=>console.log(fail));
+  .catch((fail)=>{
+    if(fail) throw fail;
+  });
 

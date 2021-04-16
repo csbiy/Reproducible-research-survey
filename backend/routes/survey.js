@@ -1,7 +1,9 @@
+
 const express = require('express');
 const { createSurvey , getScore , createSurveyFormDto} = require("../persistence/dao/surveyDao")
 const router = express.Router()
 const RESOURCE_CREATED = 201;
+
 router.get("/", (req, res ,next) => {
      getScore()
         .then((data) => res.json(data))

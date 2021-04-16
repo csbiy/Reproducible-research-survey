@@ -1,4 +1,5 @@
 
+require('dotenv').config();
 const express = require("express");
 const sanitizeHtml = require('sanitize-html');
 const csurf = require('csurf');
@@ -28,7 +29,7 @@ app.use((req,res,next)=>{
 })
 
 app.use('/survey',survey);
-app.listen(3000, () => console.log("server executed"));
+app.listen(process.env.SERVER_PORT);
 app.get("/",csrfProtection, (req, res) => {
     console.info("survey start")
     res.setHeader(`Set-Cookie`, `surveyStartTime=${dateFormater(Date.now(), "yyyy-mm-dd HH:MM:ss")}; csrfToken=${req.csrfToken()}`);
