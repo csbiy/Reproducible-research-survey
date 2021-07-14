@@ -1,0 +1,791 @@
+---
+title: ''
+output:
+  word_document: 
+      fig_caption: yes
+      fig_height: 5
+      fig_width: 5
+      reference_docx: C:\\Users\\user\\Desktop\\한미_보고서\\template_image.docx
+  pdf_document:
+    latex_engine: xelatex
+    fig_caption: yes
+  html_document:
+    df_print: paged
+mainfont: NanumGothic
+header-includes: 
+  \usepackage{caption}
+fontsize: 10pt
+---
+
+```{r setup, include}
+```
+```{r setup, include=FALSE , root.dir=TRUE}
+knitr::opts_knit$set(root.dir="C://Users//user//Desktop//ASPC1 Reproducible_20210714//")
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, error=FALSE, results="asis", message=F)
+library(officer)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+options(kableExtra.auto_format = FALSE)
+library(kableExtra)
+library(xtable)
+library(flextable)
+library(stargazer)
+library(readxl)
+library(huxtable)
+library(gdata)
+library(stringr)
+library(latex2exp)
+library(ggpubr)
+library(stringi)
+library(pander)
+library(rstatix)
+library(tidyverse)
+Round = function(x, n=0)
+{
+  posneg = sign(x)
+  z = abs(x)*10^n
+  z = z + 0.5
+  z = trunc(z)
+  z = z/10^n
+  return(z*posneg)
+}
+getAvgAndSd= function(groupSeparation){
+  temp = groupSeparation %>% group_by(Group) %>% summarise(SD=sd(tumorVolume)) %>% select(Group,tumorVolume=SD)
+  temp$ID="SD"
+  temp2 = groupSeparation %>% group_by(Group) %>% summarise(Average=mean(tumorVolume)) %>% select(Group,tumorVolume=Average)
+  temp2$ID="Mean"
+  tempDf = rbind(temp,temp2) %>% select(ID,tumorVolume,Group) %>% rbind(groupSeparation) 
+  tempDf$tumorVolume=Round(tempDf$tumorVolume,2)
+  return(tempDf)
+}
+ separateTable = function(tempList,separateNum){
+  increaseIndex=separateNum;
+  myList=list()
+  cnt=0
+  tableRow = ceiling(ncol(tempList)/separateNum)
+  for(i in 1:tableRow){
+    if(i==tableRow){
+          myList[[i]]=tempList[,(1+cnt):ncol(tempList)]
+    }else{
+      myList[[i]]=tempList[,(1+cnt):separateNum]
+      cnt=cnt+increaseIndex
+      separateNum=separateNum*2
+    }
+  }
+  return(myList)
+ }
+getTGIPercent = function(drugName,time=timeDay,controlName="vehicle",control2Name){
+  
+  totalData =na.omit(totalData)
+  if(!(is.null(control2Name))){
+      initialControl = c(totalData$tumor_Volume[totalData$group==controlName & totalData$Time_Day==0], totalData$tumor_Volume[totalData$group==control2Name & totalData$Time_Day==0])
+      lastControl = c(totalData$tumor_Volume[totalData$group==controlName & totalData$Time_Day==time], totalData$tumor_Volume[totalData$group==control2Name & totalData$Time_Day==time])
+      deltaControl = mean(lastControl) - mean(initialControl)
+
+  }else{
+      deltaControl = mean(totalData$tumor_Volume[totalData$group==controlName & totalData$Time_Day==time]) - mean(totalData$tumor_Volume[totalData$group==controlName & totalData$Time_Day==0])
+  }
+  deltaDrug = mean(totalData$tumor_Volume[totalData$group==drugName & totalData$Time_Day==time])  - mean(totalData$tumor_Volume[totalData$group== drugName & totalData$Time_Day== 0 ])
+  return(Round((1-deltaDrug/deltaControl)*100,2))
+}
+getWeightChangePercent = function(drugName,time=timeDay){
+  deltaDrug = (mean(na.omit(totalData$weight[totalData$group==drugName & totalData$Time_Day==time]))  - mean(na.omit(totalData$weight[totalData$group== drugName & totalData$Time_Day== 0 ])))/ mean(na.omit(totalData$weight[totalData$group== drugName & totalData$Time_Day== 0 ]))
+  return(Round(deltaDrug*100,2))
+}
+getWeightChangePercentByControl = function(drugName,time=timeDay,controlName="vehicle"){
+  totalData =na.omit(totalData)
+  deltaControl = mean(totalData$weight[totalData$group==controlName & totalData$Time_Day==time]) - mean(totalData$weight[totalData$group==controlName & totalData$Time_Day==0])
+  deltaDrug = mean(totalData$weight[totalData$group==drugName & totalData$Time_Day==time])  - mean(totalData$weight[totalData$group== drugName & totalData$Time_Day== 0 ])
+  return(Round((deltaDrug/deltaControl)*100,2))
+}
+swithRowToLast = function(myList){
+  for(i in 1:length(myList)){
+  tempDf= as.data.frame(myList[i])
+  for( j in 1:ncol(tempDf)){
+    values = tempDf[,j]
+    if(any(is.na(values))){
+      replcaeValue = values[!is.na(values)]
+      values[c(length(replcaeValue),length(replcaeValue)-1)] = NA
+      values[c(length(values),length(values)-1)] = replcaeValue[c(length(replcaeValue),length(replcaeValue)-1)]
+      tempDf[,j]=values
+    }
+  }
+  myList[[i]]=tempDf
+ }
+  return(myList)
+} 
+prepCode<-function(fileName,sheetName,target="tumor"){
+  testcase=read_excel(fileName,sheetName)
+range=vector()
+newDataframe=data.frame()
+roof_break=0
+temp=0
+time=0
+repeated=0
+#get Start index
+print("pass")
+for( i in 1:ncol(testcase)){
+  for ( j in 1:nrow(testcase)){
+    if (grepl("roup",testcase[j,i]))  {
+      roof_break=1
+      start_row_index=j
+      start_col_index=i
+      break
+    }
+  }
+  if (roof_break==1){
+    break
+  }
+}
+print("pass")
+print(start_row_index)
+print(start_col_index)
+repeated=seq(start_col_index,ncol(testcase),8)
+# get Time start index
+for( i in 1:ncol(testcase)){
+  for ( j in 1:nrow(testcase)){
+    if (grepl("treatment",testcase[j,i]))  { 
+      roof_break=2
+      time=j
+      break
+    }
+  }
+  if (roof_break==2){
+    break
+  }
+}
+print("pass")
+## get Group range 
+while(TRUE){
+  if(!is.na(testcase[start_row_index,start_col_index+1])){ 
+    temp=temp+1
+    range[temp]=start_row_index
+  }
+  if(is.na(testcase[start_row_index,start_col_index+2])){ 
+    temp=temp+1
+    range[temp]=start_row_index
+    break
+  }
+  start_row_index=start_row_index+1 
+}
+edit(testcase)
+ans <-"yes"
+if(ans == "yes"){
+  if(target == "tumor"){
+  for( j in 1:length(repeated)){ 
+  for(i in 1:(length(range)-1)){
+    tempDf=data.frame(testcase[range[i]:(range[i+1]-1),repeated[j]+2],testcase[time,repeated[j]],testcase[range[i]:(range[i+1]-1),repeated[j]+3],testcase[range[i]:(range[i+1]-1),repeated[j]+4],testcase[range[i],repeated[j]+1]) 
+    colnames(tempDf)=c("ID","Time_Day","Long_mm","Short_mm","Treatment")
+    newDataframe=rbind(newDataframe,tempDf)
+  }
+  colnames(newDataframe)=c("ID","Time_Day","Long_mm","Short_mm","Treatment")
+  } 
+  head(na.omit(newDataframe))
+  sample_n(newDataframe,20)
+  return(newDataframe)
+}
+else if(target=="weight"){
+repeated=seq(start_col_index,ncol(testcase),6)
+  for( j in 1:length(repeated)){ 
+    for(i in 1:(length(range)-1)){
+      tempDf=data.frame(testcase[range[i]:(range[i+1]-1),repeated[j]+2],testcase[time,repeated[j]],testcase[range[i]:(range[i+1]-1),repeated[j]+3],testcase[range[i],repeated[j]+1])  ## ????????? df??? 
+      colnames(tempDf)=c("ID","Time_Day","Weight","Treatment")
+      newDataframe=rbind(newDataframe,tempDf)
+    }
+    colnames(newDataframe)=c("ID","Time_Day","Weight","Treatment")
+}
+head(na.omit(newDataframe))
+return(newDataframe)
+}
+    else{
+      stop("읽고자 하는 대상이 tumor data입니까 또는 weight 데이터 입니까");
+    }
+  }
+  else{
+    stop("원본 데이터 재확인해주세요. ")
+  }
+}
+orderByGroupFromRawData = function(tbl,orderOfGroup){
+    tbl$group <- factor(tbl$group, levels=orderOfGroup)
+    tbl=tbl[order(tbl$group), ]
+    return (tbl)
+}
+getIndexOfTimeChange= function(tbl){
+    lineIndex = vector()
+    index = na.omit(tbl) %>% group_by(`Days after treatment`) %>% summarise(n=n())
+    for(i in 1:length(index$n)){
+      if(i==1){
+        lineIndex[i] = index$n[i]
+    }else{
+        lineIndex[i] = index$n[i] + lineIndex[i-1]
+      }
+    }
+    return (lineIndex);
+}
+
+
+## read input Data 
+
+tumorSize=prepCode("C://Users//user//Desktop//ASPC1 Reproducible_20210714//139423071_AsPC-1 xenograft model에서 BS-102의 약물 효능 평가(20210610)_20210708.xlsx","효능평가 종양측정 및 종양 성장 그래프",target = "tumor")
+weight= prepCode("C://Users//user//Desktop//ASPC1 Reproducible_20210714//139423071_AsPC-1 xenograft model에서 BS-102의 약물 효능 평가(20210610)_20210708.xlsx","체중 측정 값 및 체중 변화 그래프 ",target = "weight")
+groupSeparation = read_excel("C://Users//user//Desktop//ASPC1 Reproducible_20210714//groupSeparation.xlsx")
+
+#tumorWeight = read_excel("C://Users//user//Desktop//인투셀_보고서//tumorWeight.xlsx")
+tumorSize$TumorVolume=as.numeric(tumorSize$Long_mm)*((as.numeric(tumorSize$Short_mm)/2)**2)*2
+totalData=data.frame(tumorSize[,1],as.numeric(tumorSize$Time_Day),tumorSize[,3:4],tumorSize$TumorVolume,as.numeric(weight$Weight),weight$Treatment)
+colnames(totalData)=c("ID","Time_Day","Long_mm^3","Short_mm^3","tumor_Volume","weight","group")
+totalData$group = str_replace_all(totalData$group,"[\r\n]"," ")
+totalData$group = stri_trim(totalData$group)
+tumorWeight = read_excel("C://Users//user//Desktop//ASPC1 Reproducible_20210714//tumorWeight.xlsx")
+totalData = na.omit(totalData)
+
+###expMetaDataSetting 
+
+###expMetaDataSetting
+groupSeparationDay=2
+expInitiationDate=0
+expExpirationDate=28
+controlName="포도당" 
+control2Name = NULL  
+#maximumTumorVolume = 2000
+drugTreatmentTimepoint= NULL
+orderByGroup=unique(groupSeparation$Group)
+orderByGroupFromGroupSeparationTbl=unique(groupSeparation$Group)
+landScapeTableRow=1
+orderOfGroup = c("포도당",
+                 "Excipient-A 20 mpk","Excipient-B 20 mpk" ,
+                 "BS-102-A 20 mpk" ,"BS-102-B 20 mpk",
+                 "Taxotere® 20 mpk","BS-102-A 10 mpk",
+                 "BS-102-B 10 mpk","Taxotere® 10 mpk")
+#groupColor=c("#000000", "darkblue", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7","Blue")
+groupColor=c("#000000", 
+             "steelblue4","steelblue3", 
+             "tan4", "springgreen3", 
+             "red3", "tan3", 
+             "springgreen4","red")
+
+totalData
+
+##약물처리시점 
+#drugTreatmentTimepoint = data.frame("y"=0 , "DrugTreamentTime"=c(1,4,7,10))
+#drugTreatmentTimepoint2 = data.frame("y"=0 , "DrugTreamentTime"=0:max(na.omit(totalData)$Time_Day))
+```
+
+
+## **6. 결과**  
+
+
+## **6.1 TGI 시험** 
+
+종양 세포 이식 후  `r groupSeparationDay`일째, 측정된 종양 부피의 평균과 표준편차(SD)가 `r Round(mean(groupSeparation$tumorVolume),2)`$mm^3$ ± `r Round(sd(groupSeparation$tumorVolume),2)` 일 때 군 분리를 하였음. 실험군의 개체별, 군별 종양부피 값은 다음 Table 1에 명시함
+
+```{r, echo=FALSE, result="asis", message=F}
+groupSeparation = getAvgAndSd(groupSeparation = groupSeparation)
+#groupSeparation = groupSeparation %>% map_df(rev) 
+tempList=list()
+groupingColume=2
+##group : came from group separation table
+for(i in seq_along(orderByGroupFromGroupSeparationTbl)){
+   tempList[[i]] = groupSeparation %>% filter(Group == orderByGroupFromGroupSeparationTbl[i]) %>% select(ID,tumorVolume) 
+  }
+tempList=do.call(cbindX, tempList)
+###
+separateNum=6
+myList = separateTable(tempList = tempList,separateNum = separateNum ) 
+orderByGroupFromGroupSeparationTbl=str_replace(orderByGroupFromGroupSeparationTbl,"\r\n","")
+
+colBorder=fp_border()
+rowBorder=fp_border(width = 2)
+startCnt=1
+endCnt=separateNum/2
+meanAndSDNum=2
+border=fp_border(width=1.5)
+
+values=list(rep(c("ID","TumorVolume"),separateNum/groupingColume))
+ myList = swithRowToLast(myList)
+for(i in 1:length(myList)){
+  if(i==length(myList)){
+    i= as.data.frame(myList[i])
+    #colnames(i)=rep(c("ID","TumorVolume"),separateNum/2)
+   p = flextable(data = i)
+    names1= colnames(i)
+    names2= rep(c("ID","TumorVolume"),ncol(i)/2)
+    p = p %>% autofit()  %>% set_header_df(mapping = data.frame(keys = names1, values = names2, stringsAsFactors = FALSE),key = "keys" ) %>% add_header_row(top=TRUE,values = orderByGroupFromGroupSeparationTbl[startCnt:length(orderByGroupFromGroupSeparationTbl)],colwidths = rep(groupingColume,ncol(i)/groupingColume))  %>% theme_booktabs() %>%  align_text_col(align = "center") %>%  align_nottext_col(align = "center" ) %>% hline( i= (nrow(i)-meanAndSDNum),border=border ,part="body") %>% fontsize(size=9,part="all")
+    if(ncol(i) -1 <groupingColume){
+      flextable_to_rmd(p)
+    }
+    else{
+      p = p %>% vline(j=seq(from=groupingColume,to=ncol(i)-1,by=groupingColume),border=colBorder,part="all") 
+      flextable_to_rmd(p)
+    }
+     
+  }else{
+    i= as.data.frame(myList[i])
+
+    #colnames(i)=rep(c("ID","TumorVolume"),separateNum/2)
+    p = flextable(data = i)
+    
+    names1= colnames(i)
+    names2= rep(c("ID","TumorVolume"),separateNum/2)
+    p = p %>% autofit()  %>% set_header_df(mapping = data.frame(keys = names1, values = names2, stringsAsFactors = FALSE),key = "keys" ) %>% add_header_row(top=TRUE,values = orderByGroupFromGroupSeparationTbl[startCnt:endCnt],colwidths = rep(groupingColume,separateNum/groupingColume))  %>% theme_booktabs() %>%  align_text_col(align = "center")%>%  align_nottext_col(align = "center" ) %>% vline(j=seq(from=groupingColume,to=ncol(i)-1,by=groupingColume),border=colBorder,part="all") %>% hline( i= (nrow(i)-meanAndSDNum),border=border ,part="body") %>% fontsize(size=9,part="all")
+    #%>% compose(j=1,value=as_paragraph(as_sub("TumorVolume("),"\U0302",as_sub(")")),part="header")
+    flextable_to_rmd(p) 
+  }
+  startCnt = startCnt + separateNum/2
+  endCnt =  endCnt + separateNum/2
+  print("\n")
+}
+  
+```
+
+
+`r sprintf("Table1. 종양 성장 확인 및 군 분리")`
+
+## **6.1.1 종양 성장 확인 및 군 분리**
+```{r, echo=FALSE, result="asis", message=F}
+
+cat(paste('-실험 종료일(약물투여 후 ',expExpirationDate,'일)기준으로 '))
+grp=unique(totalData$group)[!is.na(unique(totalData$group))]
+for(i in seq_along(grp)){
+  if(grp[i] == controlName){
+    cat(grp[i]," 의 종양 크기는 ",Round(mean(totalData$tumor_Volume[totalData$Time_Day==expExpirationDate & totalData$group == grp[i]]),2) , "$mm^3$ , ")
+  }else{
+      if(i == length(grp)){
+        cat(grp[i]," 의 종양 크기는 ",Round(mean(totalData$tumor_Volume[totalData$Time_Day==expExpirationDate & totalData$group == grp[i]]),2) , "$mm^3$  ")
+      }else{
+        cat(grp[i]," 의 종양 크기는 ",Round(mean(totalData$tumor_Volume[totalData$Time_Day==expExpirationDate & totalData$group == grp[i]]),2) , "$mm^3$ , ")
+    }
+  }
+}
+cat("이었으며,")
+cat(" 결과는 Table 2와 Figure 1a,b에 나타냄.")
+print("\n")
+cat("* TGI(%): Tumor growth inhibition (%) = {1-(△T/△C)} x 100")
+```
+
+```{r, echo=FALSE, result="asis", message=F}
+cat('-실험 종료일 기준으로 ')
+for(i in seq_along(grp)){
+  if(grp[i] == controlName){
+    next;
+  }
+  if(!is.null(control2Name)){
+      if(grp[i] == control2Name){
+      next;
+    }
+  }
+      if(i == length(grp)){
+          cat(grp[i],"군에서 ",getTGIPercent(grp[i],expExpirationDate, controlName = controlName,control2Name = control2Name) , "\\% ")
+          }
+      else{
+          cat(grp[i],"군에서 ",getTGIPercent(grp[i],expExpirationDate,controlName = controlName,control2Name = control2Name) , "\\% , ")
+          }
+  }
+
+cat("이었으며, 그 결과는 Table3에 나타냄.")
+```
+
+
+```{r, fig.width=10, fig.height=8 , fig.show='hold',fig.align='center' }
+totalData2 = na.omit(totalData)
+tumorGrowthGph =totalData2 %>% select(Time_Day,tumor_Volume,group) %>% group_by(Time_Day,group) %>% summarise( tumorVolAvg = mean(tumor_Volume),tumorVolSd = sd(tumor_Volume))
+tumorGrowthGph$group <- factor(tumorGrowthGph$group, levels=orderOfGroup)
+
+
+#tumorGrowthGph = tumorGrowthGph %>% filter(tumorVolAvg < maximumTumorVolume)
+ggplot(na.omit(tumorGrowthGph),aes(x=Time_Day,y=tumorVolAvg,group=group,color=group)) +           
+        geom_point(size=5)+
+        geom_line(size=1)+      
+        geom_errorbar(aes(ymin=tumorVolAvg-tumorVolSd,ymax=tumorVolAvg+tumorVolSd),width=0.1, alpha=1, size=0.6)+
+        labs(x=TeX("Days after grouping"),y=TeX("Tumor Volume ($mm^3$) "))+
+       theme_bw(base_size = 13)+
+       expand_limits(x = 0, y = 0) +
+        scale_x_continuous(breaks = seq(0,30,by=1),expand = c(0,0.2),limits = c(0,30)) +
+         scale_y_continuous(breaks = seq(0,1200,by=100), expand = c(0,0),limits = c(0,1200)) +
+  
+        theme(legend.position="bottom",legend.text = element_text(size = 9),legend.title =element_text(size=8,face=4),legend.direction = "horizontal") +
+        #geom_line(data=drugTreatmentTimepoint2,mapping = aes(x=DrugTreamentTime,y=y),inherit.aes = FALSE,size=1) + 
+        #geom_point(data=drugTreatmentTimepoint,aes(x=DrugTreamentTime,y=y),inherit.aes = FALSE,shape=24,fill="red",size=4) +
+    
+        scale_color_manual(name="group",values = groupColor) 
+    
+
+```
+
+`r sprintf("Figure 1a. 그룹 별 종양 성장 곡선")`
+
+
+```{r, fig.width=3, fig.height=2,fig.show='hold',fig.align='center' }
+expGroup= levels(unique(tumorGrowthGph$group))
+tumorGrowthIndvidualGph=totalData %>% select(ID,Time_Day,tumor_Volume,group)%>% group_by(Time_Day,group) %>% arrange(group)
+#tumorGrowthIndvidualGph = tumorGrowthIndvidualGph %>% filter(tumor_Volume < maximumTumorVolume)
+for(i in seq_along(expGroup)){
+  data=tumorGrowthIndvidualGph %>% filter(group==expGroup[i])
+  print(ggplot(na.omit(data),aes(x=Time_Day,y=tumor_Volume,group=ID))+
+          geom_line(size=0.7,color=groupColor[i])+
+          theme_bw(base_size = 10)+
+          
+          labs(x=TeX("Days after grouping"),y=TeX("Tumor Volume ($mm^3$) "))+
+          theme(legend.position = c(0.28,0.84),legend.text = element_text(size = 9))+ 
+          
+       expand_limits(x = 0, y = 0) +
+        ylim(c(0,2000))+
+        scale_x_continuous(breaks = seq(0,30,by=2),expand = c(0,0.1),limits = c(0,30)) +
+         scale_y_continuous(breaks = seq(0,1200,by=100), expand = c(0,0),limits = c(0,1200)) +
+          ggtitle(as.character(data$group))+
+          theme(plot.title = element_text(size=9))) 
+}
+
+```
+
+
+`r sprintf("Figure 1b. 개체 별 종양 성장 곡선")`
+
+
+```{r, echo=FALSE, result="asis", message=F}
+#그룹별 종양 체적 분석
+# totalData = na.omit(totalData)
+# tumorGrowthAvgAndSDTable =totalData %>% select(Time_Day,tumor_Volume,group) %>% group_by(Time_Day,group) %>% summarise( tumorVolAvg = mean(tumor_Volume),tumorVolSd = sd(tumor_Volume))
+# tumorGrowthAvgAndSDTable = orderByGroupFromRawData(tumorGrowthAvgAndSDTable,orderOfGroup)
+# 
+# 
+# colname =c(unique(tumorGrowthAvgAndSDTable$Time_Day))
+# rowname =  levels(factor(orderOfGroup,levels=orderOfGroup))
+# templateDf=data.frame(matrix(ncol = length(colname),nrow = length(rowname)))
+# colnames(templateDf)=c(unique(tumorGrowthAvgAndSDTable$Time_Day))
+# rownames(templateDf)=as.vector(rowname)
+# maxGroup=tumorGrowthAvgAndSDTable[tumorGrowthAvgAndSDTable$Time_Day == max(tumorGrowthAvgAndSDTable$Time_Day),]$group;
+# timeLine= tumorGrowthAvgAndSDTable[tumorGrowthAvgAndSDTable$group == maxGroup,]$Time_Day
+# 
+# 
+# maxTable =tumorGrowthAvgAndSDTable %>% select(group,Time_Day) %>% group_by(group) %>% summarise(max(Time_Day))
+# tempDataFrame = data.frame();
+# for (i in 1:nrow(maxTable)){
+#   if(length(timeLine[which(timeLine > maxTable[i,]$`max(Time_Day)`)] != 0)){
+#   tempDataFrame=rbind(tempDataFrame,data.frame(timeLine[which(timeLine > maxTable[i,]$`max(Time_Day)`)],maxTable[i,]$group))
+#   }}
+# tempDataFrame$'tumorVolAvg' = NA
+# tempDataFrame$'tumorVolSd' = NA
+# colnames(tempDataFrame)=c("Time_Day","group",'tumorVolAvg',"tumorVolSd")
+# tumorGrowthAvgAndSDTable = rbind(tumorGrowthAvgAndSDTable,tempDataFrame)
+# tumorGrowthAvgAndSDTable = orderByGroupFromRawData(tumorGrowthAvgAndSDTable,orderOfGroup)
+# 
+# for(i in 1:nrow(templateDf)){
+#   templateDf[i,]=paste0(Round(tumorGrowthAvgAndSDTable[tumorGrowthAvgAndSDTable$group==rownames(templateDf)[i],]$tumorVolAvg,2),"±",Round(tumorGrowthAvgAndSDTable[tumorGrowthAvgAndSDTable$group==rownames(templateDf)[i],]$tumorVolSd,2))
+# }
+
+tumorGrowthAvgAndSDTable =totalData %>% select(Time_Day,tumor_Volume,group) %>% group_by(Time_Day,group) %>% summarise( tumorVolAvg = mean(tumor_Volume),tumorVolSd = sd(tumor_Volume))
+
+tumorGrowthAvgAndSDTable = orderByGroupFromRawData(tumorGrowthAvgAndSDTable,orderOfGroup)
+##making template for tumorGrowthAvgAndSDTable
+colname =c(unique(tumorGrowthAvgAndSDTable$Time_Day))
+rowname =  levels(factor(orderOfGroup,levels=orderOfGroup))
+templateDf=data.frame(matrix(ncol = length(colname),nrow = length(rowname)))
+colnames(templateDf)=c(unique(tumorGrowthAvgAndSDTable$Time_Day))
+rownames(templateDf)=as.vector(rowname)
+for(i in 1:nrow(templateDf)){
+  templateDf[i,]=paste0(Round(tumorGrowthAvgAndSDTable[tumorGrowthAvgAndSDTable$group==rownames(templateDf)[i],]$tumorVolAvg,2),"±",Round(tumorGrowthAvgAndSDTable[tumorGrowthAvgAndSDTable$group==rownames(templateDf)[i],]$tumorVolSd,2))
+}
+
+## 
+templateDf[templateDf=="NA±NA"] =NA
+##landScape table row 3개 
+landScapeTableColNum = ncol(templateDf)/landScapeTableRow 
+indexCnt = 1
+tumorGrowthAvgAndSDTable = data.frame();
+for(i in 1:landScapeTableRow){
+  ##첫번쨰행을 그룹과 시간명으로 바꾸어치기하고 뒷부분을 한번씩 미룹니다. 
+  tempDf = templateDf[,indexCnt:(landScapeTableColNum*i)];
+  tempDf[2:(nrow(tempDf)+1),] = tempDf[1:nrow(tempDf),];
+  rownames(tempDf)=c("Days After Treatment",rownames(templateDf));
+  tempDf[1,]=colnames(tempDf);
+  colnames(tempDf)=rep("tempColname",landScapeTableColNum)
+  tumorGrowthAvgAndSDTable=rbind(tumorGrowthAvgAndSDTable,tempDf);
+  indexCnt=indexCnt+landScapeTableColNum
+}
+tumorGrowthAvgAndSDTable[,2:(ncol(tumorGrowthAvgAndSDTable)+1)]=tumorGrowthAvgAndSDTable[,1:ncol(tumorGrowthAvgAndSDTable)]
+tumorGrowthAvgAndSDTable[,1]=rep(c("Days After Treatment",rownames(templateDf)),landScapeTableRow)
+colnames(tumorGrowthAvgAndSDTable)= c(1:length(colnames(tumorGrowthAvgAndSDTable)))
+rownames(tumorGrowthAvgAndSDTable)= NULL
+border=fp_border(width=1.5)
+
+if(landScapeTableRow != 1){
+  tumorGrowthAvgAndSDTableLineIndex=seq(from=1,to=nrow(tumorGrowthAvgAndSDTable),by=length(orderOfGroup)+1)
+  tumorGrowthAvgAndSDTableLineIndex=c(tumorGrowthAvgAndSDTableLineIndex-1,tumorGrowthAvgAndSDTableLineIndex)
+  tumorGrowthAvgAndSDTableLineIndex=tumorGrowthAvgAndSDTableLineIndex[2:length(tumorGrowthAvgAndSDTableLineIndex)]
+}else{
+    tumorGrowthAvgAndSDTableLineIndex=seq(from=1,to=nrow(tumorGrowthAvgAndSDTable),by=length(orderOfGroup)+1)
+    tumorGrowthAvgAndSDTableLineIndex=c(0,tumorGrowthAvgAndSDTableLineIndex)
+    tumorGrowthAvgAndSDTableLineIndex=tumorGrowthAvgAndSDTableLineIndex[2:length(tumorGrowthAvgAndSDTableLineIndex)]
+}
+dt=regulartable(tumorGrowthAvgAndSDTable) %>% autofit() %>%  delete_part(part="header") %>% hline_top( border = border, part="all") %>% hline(i=tumorGrowthAvgAndSDTableLineIndex,border=border ,part="body") %>% fontsize(size=9.5,part="body")
+doc <- read_docx() %>%
+      # Make it landscape
+      body_end_section_continuous() %>%
+      # Add the table
+      body_add_flextable(value = dt,split = FALSE) %>%
+      body_end_section_landscape()
+    # Write the 
+    print( doc, target = "tumorGrowthAvgAndSDTable.docx" )
+    ## Pring supervisor
+    
+```
+
+`r sprintf("Table2. 종양부피의 평균 및 표준편차")`
+
+
+
+
+```{r, echo=FALSE, result="asis", message=F}
+if(is.null(control2Name)){
+  tgiTable= totalData %>% filter(Time_Day==expExpirationDate) %>% group_by(group) %>% summarise(TGI = getTGIPercent(drugName = group,time = Time_Day,controlName = controlName,control2Name = control2Name)) %>% filter(group != controlName) 
+}else{
+  tgiTable= totalData %>% filter(Time_Day==expExpirationDate) %>% group_by(group) %>% summarise(TGI = getTGIPercent(drugName = group,time = Time_Day,controlName = controlName,control2Name = control2Name)) %>% filter(group != controlName) %>% filter(group != control2Name) 
+}
+colnames(tgiTable)=c("Group","TGI(%)")
+tgiTable$Group = factor(tgiTable$Group, levels=orderOfGroup)
+tgiTable=tgiTable[order(tgiTable$Group), ]
+p = flextable(data = tgiTable)
+p = p %>% autofit()  %>% theme_zebra() %>%  align_text_col(align = "center")%>%  align_nottext_col(align = "center" ) %>% vline(j=1,border=colBorder,part="all")
+flextable_to_rmd(p) 
+```
+
+`r sprintf("Table3. TGI(%%)")`
+
+
+```{r, fig.width=8, fig.height=6.3 , fig.show='hold',fig.align='center' }
+expExpirationDateTumorGrowthGraph= totalData %>% filter(Time_Day==expExpirationDate) %>% group_by(group) %>% select(tumor_Volume,group)
+expExpirationDateTumorGrowthGraph = orderByGroupFromRawData(expExpirationDateTumorGrowthGraph,orderOfGroup)
+aovresult =aov(tumor_Volume~group,data=expExpirationDateTumorGrowthGraph)
+stat.test = tukey_hsd(aovresult)
+ tmp = stat.test[stat.test$p.adj<=0.05,] %>% select("group 1"=group1,"group 2"=group2,estimate,conf.low,conf.high,p.adj.signif,p.adj)
+flextable(tmp) %>% autofit %>% fontsize(size=9,part="body") 
+stat.test = stat.test[stat.test$p.adj<=0.05,][1:4,]
+p= ggboxplot(expExpirationDateTumorGrowthGraph,x="group",y="tumor_Volume",color="group" ,add="jitter" ,palette = groupColor) + stat_pvalue_manual(stat.test, label = "p = {p.adj}",y.position = seq(from=1300,to=1900,by=200)) + rotate_x_text(45) +labs(x=TeX("group"),y=TeX("Tumor Volume ($mm^3$) "))
+ggpar(p,legend = "bottom", legend.title = "group")
+
+```
+
+`r sprintf("Figure 2. 약물 투여 후 %d 일째 개체별 종양 체적(mm3)",expExpirationDate)`
+
+
+
+```{r, fig.width=10.5, fig.height=7 , fig.show='hold',fig.align='center' }
+result = tumorWeight %>% group_by(Group,Time_Day) %>% summarise(mean=mean(tumorWeight),sd=sd(tumorWeight))
+colnames(result)=c("group","Time_Day","mean","sd")
+result = orderByGroupFromRawData(result,orderOfGroup)
+tumorWeightGph = data.frame(paste0(result$group,"_Day ",result$Time_Day),result$mean,result$sd)
+colnames(tumorWeightGph)=c("group","mean","sd")
+tumorWeightGph$group = factor(tumorWeightGph$group,levels=tumorWeightGph$group)
+
+
+##
+result = tumorWeight %>% select(group = Group,Time_Day,tumorWeight)
+result = orderByGroupFromRawData(result,orderOfGroup)
+tumorWeightGph2 = data.frame(paste0(result$group,"_Day ",result$Time_Day),result$tumorWeight)
+colnames(tumorWeightGph2)=c("group","tumorWeight")
+
+##
+
+ggplot(tumorWeightGph,aes(x=group,y=mean,group=group,color=group,order=group)) +
+          geom_bar(stat="identity",fill="grey")+
+          geom_errorbar(aes(ymin=mean-sd,ymax=mean+sd),width=0.1, alpha=1, size=0.4)+
+          theme_bw(base_size = 10)+
+          labs(x=TeX("group"),y=TeX("Tumor Weight (g) "))+
+          scale_x_discrete(guide = guide_axis(angle = 45)) +
+          theme(legend.position="bottom",legend.text = element_text(size = 9),legend.title =element_text(size=8,face=4),legend.direction = "horizontal") +
+          geom_point(data=tumorWeightGph2,aes(x=group,y=tumorWeight,group=group,color=group,order=group)) +          scale_color_manual(name="group",values = groupColor)
+
+
+```
+
+
+`r sprintf("Figure 3. 실험 종료일 별 평균 종양 무게(g)")`
+
+
+## **6.1.3 체중 측정 및 결과 분석**
+
+
+```{r, echo=FALSE, result="asis", message=F}
+
+cat(paste('-약물 개시 시점에 '))
+for(i in seq_along(grp)){
+  if(grp[i] == controlName){
+          cat(grp[i],"군에서 ",Round(mean(totalData$weight[totalData$Time_Day==expInitiationDate & totalData$group == grp[i]]),2) ,"g , ")
+    }
+  else{
+      if(i == length(grp)){
+          cat(grp[i],"군에서 ",Round(mean(totalData$weight[totalData$Time_Day==expInitiationDate & totalData$group == grp[i]]),2) ,"g ")
+          }
+      else{
+          cat(grp[i],"군에서 ",Round(mean(totalData$weight[totalData$Time_Day==expInitiationDate & totalData$group == grp[i]]),2) ,"g  , ")
+          }
+    }
+}
+cat("이었으며, 그 결과는 Table 4에 나타냄.")
+
+
+```
+
+```{r, echo=FALSE, result="asis", message=F}
+cat(paste('-실험 종료일 기준으로 체중 변화는 '))
+for(i in seq_along(grp)){
+  if(grp[i] == controlName){
+          cat(grp[i],"군에서 ",getWeightChangePercent(grp[i],time=expExpirationDate) ,"\\% , ")
+    }
+  else{
+      if(i == length(grp)){
+          cat(grp[i],"군에서 ",getWeightChangePercent(grp[i],time=expExpirationDate) ,"\\%  ")
+          }
+      else{
+          cat(grp[i],"군에서 ",getWeightChangePercent(grp[i],time=expExpirationDate) ,"\\% , ")
+          }
+    }
+}
+cat("이었으며, 그 결과는 Table 4와 Figure 2로 나타냄")
+```
+
+```{r, echo=FALSE, result="asis", message=F}
+#그룹별 체중 평균 및 표준편차차
+
+# weightAvgAndSDTable =totalData %>% select(Time_Day,weight,group) %>% group_by(Time_Day,group) %>% summarise( weightAvg = mean(weight),weightSd = sd(weight))
+# weightAvgAndSDTable = orderByGroupFromRawData(weightAvgAndSDTable,orderOfGroup)
+# ##making template for weightAvgAndSDTablev
+# colname =c(unique(weightAvgAndSDTable$Time_Day))
+# rowname =  levels(factor(orderOfGroup,levels=orderOfGroup))
+# templateDf=data.frame(matrix(ncol = length(colname),nrow = length(rowname)))
+# colnames(templateDf)=c(unique(weightAvgAndSDTable$Time_Day))
+# rownames(templateDf)=as.vector(rowname)
+# weightAvgAndSDTable = rbind(weightAvgAndSDTable,tempDataFrame)
+# weightAvgAndSDTable = orderByGroupFromRawData(weightAvgAndSDTable,orderOfGroup)
+# 
+# for(i in 1:nrow(templateDf)){
+#   templateDf[i,]=paste0(Round(weightAvgAndSDTable[weightAvgAndSDTable$group==rownames(templateDf)[i],]$weightAvg,2),"±",Round(weightAvgAndSDTable[weightAvgAndSDTable$group==rownames(templateDf)[i],]$weightSd,2))
+# }
+# templateDf[templateDf=="NA±NA"] =NA
+weightAvgAndSDTable =totalData %>% select(Time_Day,weight,group) %>% group_by(Time_Day,group) %>% summarise( weightAvg = mean(weight),weightSd = sd(weight))
+weightAvgAndSDTable = orderByGroupFromRawData(weightAvgAndSDTable,orderOfGroup)
+##making template for weightAvgAndSDTablev
+colname =c(unique(weightAvgAndSDTable$Time_Day))
+rowname =  levels(factor(orderOfGroup,levels=orderOfGroup))
+templateDf=data.frame(matrix(ncol = length(colname),nrow = length(rowname)))
+colnames(templateDf)=c(unique(weightAvgAndSDTable$Time_Day))
+rownames(templateDf)=as.vector(rowname)
+for(i in 1:nrow(templateDf)){
+  templateDf[i,]=paste0(Round(weightAvgAndSDTable[weightAvgAndSDTable$group==rownames(templateDf)[i],]$weightAvg,2),"±",Round(weightAvgAndSDTable[weightAvgAndSDTable$group==rownames(templateDf)[i],]$weightSd,2))
+}
+templateDf[templateDf=="NA±NA"] =NA
+
+landScapeTableColNum = ncol(templateDf)/landScapeTableRow
+indexCnt = 1
+weightAvgAndSDTable = data.frame();
+for(i in 1:landScapeTableRow){
+  ##첫번쨰행을 그룹과 시간명으로 바꾸어치기하고 뒷부분을 한번씩 미룹니다. For i in range(10): 10 to range(20); usage ()
+  tempDf = templateDf[,indexCnt:(landScapeTableColNum*i)];
+  tempDf[2:(nrow(tempDf)+1),] = tempDf[1:nrow(tempDf),];
+  rownames(tempDf)=c("Days After Treatment",rownames(templateDf));
+  tempDf[1,]=colnames(tempDf);
+  colnames(tempDf)=rep("tempColname",landScapeTableColNum)
+  weightAvgAndSDTable=rbind(weightAvgAndSDTable,tempDf);
+  indexCnt=indexCnt+landScapeTableColNum
+}
+weightAvgAndSDTable[,2:(ncol(weightAvgAndSDTable)+1)]=weightAvgAndSDTable[,1:ncol(weightAvgAndSDTable)]
+weightAvgAndSDTable[,1]=rep(c("Days After Treatment",rownames(templateDf)),landScapeTableRow)
+colnames(weightAvgAndSDTable)= c(1:length(colnames(weightAvgAndSDTable)))
+rownames(weightAvgAndSDTable)= NULL
+border=fp_border(width=1.5)
+dt=regulartable(weightAvgAndSDTable) %>% autofit() %>%  delete_part(part="header") %>% hline_top( border = border, part="all") %>% hline( i=1,border=border ,part="all") %>% hline( i=tumorGrowthAvgAndSDTableLineIndex,border=border ,part="body") %>% fontsize(size=9.5,part="body")
+doc <- read_docx() %>%
+      # Make it landscape
+      body_end_section_continuous() %>%
+      # Add the table
+      body_add_flextable(value = dt,split = FALSE) %>%
+      body_end_section_landscape()
+    # Write the
+    print( doc, target = "weightAvgAndSDTable.docx" )
+```
+
+
+`r sprintf("Table4. 체중의 평균 및 표준편차")`
+
+```{r, fig.width=10, fig.height=8 , fig.show='hold',fig.align='center' }
+
+minWeightVal = 15
+maxWeightVal = 30
+
+tumorGrowthGph =totalData2 %>% select(ID,Time_Day,tumor_Volume,group,weight) %>% group_by(Time_Day,group) %>% summarise(tumorVolAvg = mean(tumor_Volume),tumorVolSd = sd(tumor_Volume))
+#maxTime = tumorGrowthGph %>% filter(tumorVolAvg < maximumTumorVolume) %>% group_by(group) %>% summarise(max(Time_Day))
+weightGph = totalData2 %>% select(ID,Time_Day,weight,group,tumor_Volume) %>% group_by(Time_Day,group) %>% summarise(AVG=mean(weight),SD=sd(weight),tumorVolCutoff =mean(tumor_Volume)) # %>% filter(tumorVolCutoff <= maximumTumorVolume)
+weightGph = orderByGroupFromRawData(weightGph,orderOfGroup)
+
+ggplot(na.omit(weightGph),aes(x=Time_Day,y=AVG,group=group,color=group)) +
+  
+        geom_point(size=5)+
+        geom_line(size=1)+    
+        geom_errorbar(aes(ymin=AVG-SD,ymax=AVG+SD),width=0.1, alpha=1, size=0.6)+
+        labs(x=TeX("Days after grouping"),y=TeX("Body Weight(g)"))+
+           expand_limits(x = 0, y = 0) +
+
+        scale_x_continuous(breaks = seq(0,30,by=1),expand = c(0,0.3),limits=c(0,30)) +
+         scale_y_continuous(breaks = seq(8,30,by=1), expand = c(0,0), limits = c(6,30)) +
+          theme_bw(base_size = 13)+
+  
+        theme(legend.position="bottom",legend.text = element_text(size = 9),legend.title =element_text(size=8,face=4),legend.direction = "horizontal") +
+
+        scale_color_manual(values = groupColor)+
+        #geom_line(data=drugTreatmentTimepoint2,mapping = aes(x=DrugTreamentTime,y=y),inherit.aes = FALSE,size=1) +
+        #geom_point(data=drugTreatmentTimepoint,aes(x=DrugTreamentTime,y=y),inherit.aes = FALSE,shape=24,fill="red",size=4) +
+        scale_color_manual(name="group",values = groupColor)
+```
+
+`r sprintf("Figure 4a. 그룹별 체중 변화 곡선")`
+
+```{r, fig.width=3, fig.height=2,fig.show='hold',fig.align='center' }
+weightIndvidualGph=totalData %>% select(ID,Time_Day,weight,group,tumor_Volume)%>% group_by(Time_Day,group) %>% arrange(group)
+#weightIndvidualGph = weightIndvidualGph %>% filter(tumor_Volume < maximumTumorVolume)
+for(i in seq_along(expGroup)){
+  data=weightIndvidualGph %>% filter(group==expGroup[i])
+  print(ggplot(na.omit(data),aes(x=Time_Day,y=weight,group=ID))+
+          geom_line(size=0.7,color=groupColor[i])+
+          
+         expand_limits(x = 0, y = 0) +
+
+        scale_x_continuous(breaks = seq(0,30,by=2),expand = c(0,0),limits=c(0,30)) +
+         scale_y_continuous(breaks = seq(6,30,by=2), expand = c(0,0), limits = c(6,30)) +
+          theme_bw(base_size = 10)+
+
+          labs(x=TeX("Days after grouping"),y=TeX("Body Weight (g)"))+
+          theme(legend.position = c(0.28,0.84),legend.text = element_text(size = 9))+
+          ggtitle(as.character(data$group))+
+          theme(plot.title = element_text(size=9)))
+}
+```
+
+`r sprintf("Figure 4b. 개체 별 체중 변화 곡선")`
+
+
+**6.1.4 Appendix**
+
+
+`r sprintf("Table5. 종양부피")`
+
+```{r, echo=FALSE, result="asis", message=F}
+tumorTable=na.omit(totalData) %>% select(ID,group,"Days after treatment"=Time_Day,"Long(mm)"=`Long_mm^3`,"Short(mm)"=`Short_mm^3`,"Size(mm^3)"=tumor_Volume)
+tumorTable$`Size(mm^3)`=Round(as.numeric(tumorTable$`Size(mm^3)`),2)
+tumorTable$`Long(mm)`=Round(as.numeric(tumorTable$`Long(mm)`),2)
+tumorTable$`Short(mm)`=Round(as.numeric(tumorTable$`Short(mm)`),2)
+#tumorTable =  tumorTable %>% filter(`Size(mm^3)` < maximumTumorVolume)
+lineIndex = getIndexOfTimeChange(tumorTable)
+border = fp_border(width = 2)
+flextable(tumorTable) %>% autofit() %>% fontsize(size=8,part="body") %>% flextable::width(j=3,width = 1) %>%  align_text_col(align = "center")%>%  align_nottext_col(align = "center" ) %>% hline(i=lineIndex,border=border ,part="body") 
+
+```
+
+`r sprintf("Table6. 체중")`
+
+```{r, echo=FALSE, result="asis", message=F}
+weightTable = na.omit(totalData)
+weightTable =  weightTable  %>% select(ID,group,"Days after treatment"=Time_Day,"weight(g)"=weight)
+lineIndex = getIndexOfTimeChange(weightTable)
+flextable(weightTable) %>% autofit() %>% fontsize(size=8,part="body") %>% flextable::width(j=3,width = 1) %>%  align_text_col(align = "center")%>%  align_nottext_col(align = "center" ) %>% hline(i=lineIndex,border=border ,part="body")
